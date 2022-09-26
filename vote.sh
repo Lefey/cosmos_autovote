@@ -4,13 +4,14 @@
 PROJECT="COSMOS"
 VOTE_BEFORE=600 # vote time window in seconds before end of voting, used for auto vote
 COSMOS="/usr/local/bin/gaiad" # set your chain binary
+NODE_HOME="/root/.cosmos" # path to config folder
 DELEGATOR_ADDRESS="cosmos1..." # wallet address for sending vote tx, must be in keys list (only test keyring for now)
 CHAT_ID_STATUS="11223344" # telegram chat id
 BOT_KEY="1122334455:Aabb..." # telegram bot token
 # -- CONFIG ZONE END --
 
-echo "$(date +"%Y-%m-%d_%H-%M-%S") Start proposal vote check"
-PROPOSALS=$(${COSMOS} query gov proposals --status VotingPeriod --output json 2>/dev/null|jq -r '.proposals[]|to_entries[]|select(.key|contains("id"))|.value')
+echo "-------- $(date +"%Y-%m-%d_%H-%M-%S") start proposal vote check --------"
+PROPOSALS=$(${COSMOS} query gov proposals --status VotingPeriod --home ${NODE_HOME} --output json 2>/dev/null|jq -r '.proposals[]|to_entries[]|select(.key|contains("id"))|.value')
 if [[ -z "$PROPOSALS" ]]; then
   echo "No voting period proposals, exit"
   echo "$(date +"%Y-%m-%d_%H-%M-%S") Check done"
@@ -19,7 +20,7 @@ else
   echo "List of VotingPeriod proposals: ${PROPOSALS}"
 fi
 for PROP_ID in $PROPOSALS; do
-    VOTED=$(${COSMOS} query gov vote $PROP_ID ${DELEGATOR_ADDRESS} --output json 2>/dev/null|jq -r '.options[].option')
+    VOTED=$(${COSMOS} query gov vote $PROP_ID ${DELEGATOR_ADDRESS} --home ${NODE_HOME} --output json 2>/dev/null|jq -r '.options[].option')
     if [[ -z "$VOTED" ]]
     then
         echo "Start voting routine on proposal ${PROP_ID}"
@@ -28,7 +29,7 @@ for PROP_ID in $PROPOSALS; do
             echo "Proposal ${PROP_ID} already sended to telegram"
         else
             echo "Send proposal ${PROP_ID} to telegram"
-            prop_info=$(${COSMOS} query gov proposal $PROP_ID --output json)
+            prop_info=$(${COSMOS} query gov proposal $PROP_ID --home ${NODE_HOME} --output json)
             prop_info_title=$(echo $prop_info | jq -r '..|objects|.title//empty')
             prop_info_descr=$(echo $prop_info | jq -r '..|objects|.description//empty'|sed -e 's/<[^>]*>//g')
             prop_info_start=$(echo $prop_info | jq -r '.voting_start_time|strptime("%Y-%m-%dT%H:%M:%S.%Z")|mktime|strftime("%Y-%m-%d %H:%M %Z")')
@@ -42,19 +43,19 @@ for PROP_ID in $PROPOSALS; do
         CALLBACK=$(curl -s "https://api.telegram.org/bot${BOT_KEY}/getUpdates"|jq -r '.result|max_by(.update_id)|.callback_query.data|split("_")' 2>/dev/null)
         if [[ -z "${CALLBACK}" ]]
         then
-            if $(${COSMOS} query gov proposal $PROP_ID --output json|jq --argjson v $VOTE_BEFORE '.voting_end_time|strptime("%Y-%m-%dT%H:%M:%S.%Z")|mktime > (now+$v)')
+            if $(${COSMOS} query gov proposal $PROP_ID --home ${NODE_HOME} --output json|jq --argjson v $VOTE_BEFORE '.voting_end_time|strptime("%Y-%m-%dT%H:%M:%S.%Z")|mktime > (now+$v)')
             then
                 echo "Whait for autovoting time become"
             else
-                VOTE=$(${COSMOS} query gov tally $PROP_ID --output json|jq -r 'to_entries|.[].value|=tonumber|max_by(.value)|.key'|sed s/_count//)
-                ${COSMOS} tx gov vote $PROP_ID $VOTE --keyring-backend test --from ${DELEGATOR_ADDRESS} -y 2>/dev/null
+                VOTE=$(${COSMOS} query gov tally $PROP_ID --home ${NODE_HOME} --output json|jq -r 'to_entries|.[].value|=tonumber|max_by(.value)|.key'|sed s/_count//)
+                ${COSMOS} tx gov vote $PROP_ID $VOTE --home ${NODE_HOME} --keyring-backend test --from ${DELEGATOR_ADDRESS} -y 2>/dev/null
                 echo "Voted \"${VOTE}\" for proposal ${PROP_ID}, because voting period end soon"
             fi
         else
             if [[ $PROP_ID -eq $(echo $CALLBACK|jq -r .[1]) ]]
             then
                 VOTE=$(echo $CALLBACK|jq -r .[2])
-                ${COSMOS} tx gov vote $PROP_ID $VOTE --keyring-backend test --from ${DELEGATOR_ADDRESS} -y 2>/dev/null
+                ${COSMOS} tx gov vote $PROP_ID $VOTE --home ${NODE_HOME} --keyring-backend test --from ${DELEGATOR_ADDRESS} -y 2>/dev/null
                 echo "Voted \"${VOTE}\" for proposal ${PROP_ID}, as selected in telegram"
             fi
         fi
@@ -62,4 +63,4 @@ for PROP_ID in $PROPOSALS; do
         echo "Already voted \"${VOTED}\" for proposal ${PROP_ID}"
     fi
 done
-echo "$(date +"%Y-%m-%d_%H-%M-%S") Check done"
+echo "-------- $(date +"%Y-%m-%d_%H-%M-%S") check done --------"
