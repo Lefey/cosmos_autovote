@@ -38,7 +38,7 @@ for PROP_ID in $PROPOSALS; do
             prop_info_end=$(echo $prop_info | jq -r '.voting_end_time|strptime("%Y-%m-%dT%H:%M:%S.%Z")|mktime|strftime("%Y-%m-%d %H:%M %Z")')
             prop_info="<b>${PROJECT} proposal ID: ${PROP_ID}</b>\n<b>${prop_info_title}</b>\n<i>${prop_info_descr}</i>\n<b>Voting start:</b> ${prop_info_start}\n<b>Voting end:</b> ${prop_info_end}"
             curl -s -X POST -H 'Content-Type: application/json' \
-            -d '{"chat_id":"'"${CHAT_ID_STATUS}"'", "text": "'"${prop_info}"'", "parse_mode": "html", "reply_markup": {"inline_keyboard": [[{"text": "Yes ✅", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_yes"},{"text": "No ❌", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_no"},{"text": "No(Veto) ⛔️", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_veto"},{"text": "Abstain 🤔", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_abstain"}]]}}' https://api.telegram.org/bot$BOT_KEY/sendMessage > /dev/null 2>&1
+            -d '{"chat_id":"'"${CHAT_ID_STATUS}"'", "text": "'"${prop_info}"'", "parse_mode": "html", "reply_markup": {"inline_keyboard": [[{"text": "Yes ✅", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_yes"},{"text": "No ❌", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_no"},{"text": "Veto ⛔️", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_veto"},{"text": "Abstain 🤔", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_abstain"}]]}}' https://api.telegram.org/bot$BOT_KEY/sendMessage > /dev/null 2>&1
             echo "${PROP_ID}_sended" >> ./${PROJECT}_VOTING
         fi
         #get callback from telegram
@@ -56,7 +56,7 @@ for PROP_ID in $PROPOSALS; do
                 else
                     echo -e "${PASWD}\n${PASWD}\n" | ${COSMOS} tx gov vote $PROP_ID $VOTE --home ${NODE_HOME} --keyring-backend ${KEYRING} --from ${DELEGATOR_ADDRESS} -y 2>/dev/null
                 fi
-                sleep 5
+                sleep 10
                 VOTE_CHK=$(${COSMOS} query gov vote $PROP_ID ${DELEGATOR_ADDRESS} --home ${NODE_HOME} --output json 2>/dev/null|jq -r '.options[].option|sub("VOTE_OPTION_";"")')
                 if [[ -n "$VOTE_CHK" ]]
                 then
@@ -74,7 +74,7 @@ for PROP_ID in $PROPOSALS; do
                 else
                     echo -e "${PASWD}\n${PASWD}\n" | ${COSMOS} tx gov vote $PROP_ID $VOTE --home ${NODE_HOME} --keyring-backend ${KEYRING} --from ${DELEGATOR_ADDRESS} -y 2>/dev/null
                 fi
-                sleep 5
+                sleep 10
                 VOTE_CHK=$(${COSMOS} query gov vote $PROP_ID ${DELEGATOR_ADDRESS} --home ${NODE_HOME} --output json 2>/dev/null|jq -r '.options[].option|sub("VOTE_OPTION_";"")')
                 if [[ -n "$VOTE_CHK" ]]
                 then
