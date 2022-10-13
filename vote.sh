@@ -2,7 +2,7 @@
 
 # -- CONFIG ZONE START --
 PROJECT="COSMOS"
-VOTE_BEFORE=600 # vote time window in seconds before end of voting period, used for auto vote
+VOTE_BEFORE=600 # vote time window in seconds before end of voting, used for auto vote
 COSMOS="/usr/local/bin/gaiad" # set your chain binary
 NODE_HOME="/root/.cosmos" # path to config folder
 KEYRING="test"
@@ -17,30 +17,29 @@ PROPOSALS=$(${COSMOS} query gov proposals --status VotingPeriod --home ${NODE_HO
 if [[ -z "$PROPOSALS" ]]; then
   echo "No voting period proposals, exit"
   echo "-------- $(date +"%d-%m-%Y %H:%M") vote check done ---------"
-  exit 0
+  exit 1
 else
   echo "List of VotingPeriod proposals: ${PROPOSALS}"
 fi
-SENDED_STORE=$(dirname -- $(readlink -f -- $0))/.${PROJECT}_SENDED
 for PROP_ID in $PROPOSALS; do
     VOTED=$(${COSMOS} query gov vote $PROP_ID ${DELEGATOR_ADDRESS} --home ${NODE_HOME} --output json 2>/dev/null|jq -r '.options[].option')
     if [[ -z "$VOTED" ]]
     then
         echo "Start voting routine on proposal ${PROP_ID}"
-        if [[ -e "${SENDED_STORE}" && $(cat "${SENDED_STORE}"|grep -m1 ${PROP_ID}) = "${PROP_ID}_sended" ]]
+        if [[ -e "./${PROJECT}_VOTING" && $(cat "./${PROJECT}_VOTING"|grep -m1 ${PROP_ID}) = "${PROP_ID}_sended" ]]
         then
             echo "Proposal ${PROP_ID} already sended to telegram"
         else
             echo "Send proposal ${PROP_ID} to telegram"
             prop_info=$(${COSMOS} query gov proposal $PROP_ID --home ${NODE_HOME} --output json)
             prop_info_title=$(echo $prop_info | jq -r '..|objects|.title//empty')
-            prop_info_descr=$(echo $prop_info | jq -r '..|objects|.description//empty'|sed -e 's/<[^>]*>//g' -e 's/&/\&amp;/g' -e 's/>/\&gt;/g' -e 's/</\&lt;/g')
+            prop_info_descr=$(echo $prop_info | jq -r '..|objects|.description//empty'|sed -e 's/<[^>]*>//g')
             prop_info_start=$(echo $prop_info | jq -r '.voting_start_time|strptime("%Y-%m-%dT%H:%M:%S.%Z")|mktime|strftime("%Y-%m-%d %H:%M %Z")')
             prop_info_end=$(echo $prop_info | jq -r '.voting_end_time|strptime("%Y-%m-%dT%H:%M:%S.%Z")|mktime|strftime("%Y-%m-%d %H:%M %Z")')
             prop_info="<b>${PROJECT} proposal ID: ${PROP_ID}</b>\n<b>${prop_info_title}</b>\n<i>${prop_info_descr}</i>\n<b>Voting start:</b> ${prop_info_start}\n<b>Voting end:</b> ${prop_info_end}"
             curl -s -X POST -H 'Content-Type: application/json' \
             -d '{"chat_id":"'"${CHAT_ID_STATUS}"'", "text": "'"${prop_info}"'", "parse_mode": "html", "reply_markup": {"inline_keyboard": [[{"text": "Yes ✅", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_yes"},{"text": "No ❌", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_no"},{"text": "Veto ⛔️", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_veto"},{"text": "Abstain 🤔", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_abstain"}]]}}' https://api.telegram.org/bot$BOT_KEY/sendMessage > /dev/null 2>&1
-            echo "${PROP_ID}_sended" >> ${SENDED_STORE}
+            echo "${PROP_ID}_sended" >> ./${PROJECT}_VOTING
         fi
         #get callback from telegram
         CALLBACK=$(curl -s "https://api.telegram.org/bot${BOT_KEY}/getUpdates"|jq -r '.result[].callback_query.data|=split("_")|.result|map({message_id: .callback_query.message.message_id, project: .callback_query.data[0], prop_id: .callback_query.data[1], vote: .callback_query.data[2]})|reverse|unique_by(.prop_id)|.[]' 2>/dev/null)
@@ -48,7 +47,7 @@ for PROP_ID in $PROPOSALS; do
         then
             if $(${COSMOS} query gov proposal $PROP_ID --home ${NODE_HOME} --output json|jq --argjson v $VOTE_BEFORE '.voting_end_time|strptime("%Y-%m-%dT%H:%M:%S.%Z")|mktime > (now+$v)')
             then
-                echo "Waiting for auto-vote time"
+                echo "Whait for autovoting time become"
             else
                 VOTE=$(${COSMOS} query gov tally $PROP_ID --home ${NODE_HOME} --output json|jq -r 'to_entries|.[].value|=tonumber|max_by(.value)|.key|sub("_count";"")')
                 if [[ ${KEYRING} = "test" ]]
