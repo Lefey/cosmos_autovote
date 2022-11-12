@@ -83,6 +83,7 @@ function __VoteStatus() {
 
 }
 function Main() {
+
 for CONF in *.conf; do
 
         # if config at least contains 'COSMOS' string, then go
@@ -136,3 +137,5 @@ for CONF in *.conf; do
 
 }
 
+# run 'main'
+Main
