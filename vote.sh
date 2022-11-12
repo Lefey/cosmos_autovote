@@ -6,7 +6,7 @@ function __VoteStatus() {
   if [[ -z "$PROPOSALS" ]]; then
     echo "No voting period proposals, exit"
     echo "-------- $(date +"%d-%m-%Y %H:%M") vote check done ---------"
-    exit 0
+#    exit 0
   else
     echo "List of VotingPeriod proposals: ${PROPOSALS}"
   fi
@@ -83,6 +83,9 @@ function __VoteStatus() {
 
 }
 function Main() {
+# read 'cosmos.conf'
+    cd $HOME/status/ && . ./cosmos.conf
+    export TZ=${TIMEZONE}
 
 for CONF in *.conf; do
 
@@ -102,13 +105,6 @@ for CONF in *.conf; do
 
             # if config directory, config.toml and genesis.json exist
             if [[ -e "${CONFIG}" &&  -e "${CONFIG}/config.toml" && -e "${CONFIG}/genesis.json" ]]; then
-
-                # get '--node' and '--chain' value
-#                NODE=$(cat ${CONFIG}/config.toml | grep -oPm1 "(?<=^laddr = \")([^%]+)(?=\")")
-#                NODE_HOME=$(echo ${CONFIG} | rev | cut -c 8- | rev)
-#                CHAIN=$(cat ${CONFIG}/genesis.json | jq .chain_id | sed -E 's/.*"([^"]+)".*/\1/')
-#                PORT=$(echo ${NODE} | awk 'NR==1 {print; exit}' | grep -o ":[0-9]*" | awk 'NR==2 {print; exit}' | cut -c 2-)
-                # -- CONFIG ZONE START --
                 PROJECT=${PROJECT}
                 VOTE_BEFORE=${VOTE_BEFORE} # vote time window in seconds before end of voting period, used for auto vote
                 COSMOS=${COSMOS} # set your chain binary
