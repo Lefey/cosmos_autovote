@@ -6,6 +6,8 @@ function __VoteStatus() {
   if [[ -z "$PROPOSALS" ]]; then
     echo "No voting period proposals, exit"
     echo "-------- $(date +"%d-%m-%Y %H:%M") vote check done ---------"
+    echo ""
+    echo ""
     #    exit 0
   else
     echo "List of VotingPeriod proposals: ${PROPOSALS}"
