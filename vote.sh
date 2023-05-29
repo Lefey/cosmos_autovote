@@ -28,7 +28,7 @@ function __VoteStatus() {
         prop_info_end=$(echo $prop_info | jq -r '.voting_end_time|strptime("%Y-%m-%dT%H:%M:%S.%Z")|mktime|strftime("%Y-%m-%d %H:%M %Z")')
         prop_info="<b>${PROJECT} proposal ID: ${PROP_ID}</b>\n<b>${prop_info_title}</b>\n<i>${prop_info_descr}</i>\n<b>Voting start:</b> ${prop_info_start}\n<b>Voting end:</b> ${prop_info_end}"
         curl -s -X POST -H 'Content-Type: application/json' \
-          -d '{"chat_id":"'"${CHAT_ID_STATUS}"'", "text": "'"${prop_info}"'", "parse_mode": "html", "reply_markup": {"inline_keyboard": [[{"text": "Yes ✅", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_yes"},{"text": "No ❌", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_no"},{"text": "Veto ⛔️", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_veto"},{"text": "Abstain 🤔", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_abstain"}]]}}' https://api.telegram.org/bot$BOT_KEY/sendMessage >/dev/null 2>&1
+          -d '{"chat_id":"'"${CHAT_ID_ALARM}"'", "text": "'"${prop_info}"'", "parse_mode": "html", "reply_markup": {"inline_keyboard": [[{"text": "Yes ✅", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_yes"},{"text": "No ❌", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_no"},{"text": "Veto ⛔️", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_veto"},{"text": "Abstain 🤔", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_abstain"}]]}}' https://api.telegram.org/bot$BOT_KEY/sendMessage >/dev/null 2>&1
         echo "${PROP_ID}_sended" >>${SENDED_STORE}
       fi
       #get callback from telegram
@@ -39,14 +39,14 @@ function __VoteStatus() {
         else
           VOTE=$(${COSMOS} query gov tally $PROP_ID --home ${NODE_HOME} --output json | jq -r 'to_entries|.[].value|=tonumber|max_by(.value)|.key|sub("_count";"")')
           if [[ ${KEYRING} = "test" ]]; then
-            ${COSMOS} tx gov vote $PROP_ID $VOTE --home ${NODE_HOME} --keyring-backend ${KEYRING} --from ${DELEGATOR_ADDRESS} -y 2>/dev/null
+            ${COSMOS} tx gov vote $PROP_ID $VOTE --home ${NODE_HOME} --keyring-backend ${KEYRING} --from ${DELEGATOR_ADDRESS} --fees ${FEES} -y 2>/dev/null
           else
-            echo -e "${PASWD}\n${PASWD}\n" | ${COSMOS} tx gov vote $PROP_ID $VOTE --home ${NODE_HOME} --keyring-backend ${KEYRING} --from ${DELEGATOR_ADDRESS} -y 2>/dev/null
+            echo -e "${PASWD}\n${PASWD}\n" | ${COSMOS} tx gov vote $PROP_ID $VOTE --home ${NODE_HOME} --keyring-backend ${KEYRING} --from ${DELEGATOR_ADDRESS} --fees ${FEES} -y 2>/dev/null
           fi
           sleep 10
           VOTE_CHK=$(${COSMOS} query gov vote $PROP_ID ${DELEGATOR_ADDRESS} --home ${NODE_HOME} --output json 2>/dev/null | jq -r '.options[].option|sub("VOTE_OPTION_";"")')
           if [[ -n "$VOTE_CHK" ]]; then
-            curl -s -X POST -H 'Content-Type: application/json' -d '{"chat_id":"'"${CHAT_ID_STATUS}"'", "text": "Voted <b>'"${VOTE_CHK}"'</b> for proposal <b>'"${PROP_ID}"'</b> in <b>'"${PROJECT}"'</b> automaticaly, because voting period end soon", "parse_mode": "html"}' https://api.telegram.org/bot${BOT_KEY}/sendMessage >/dev/null 2>&1
+            curl -s -X POST -H 'Content-Type: application/json' -d '{"chat_id":"'"${CHAT_ID_ALARM}"'", "text": "Voted <b>'"${VOTE_CHK}"'</b> for proposal <b>'"${PROP_ID}"'</b> in <b>'"${PROJECT}"'</b> automaticaly, because voting period end soon", "parse_mode": "html"}' https://api.telegram.org/bot${BOT_KEY}/sendMessage >/dev/null 2>&1
             echo "Voted \"${VOTE_CHK}\" for proposal ${PROP_ID}, because voting period end soon"
           fi
         fi
@@ -54,15 +54,15 @@ function __VoteStatus() {
         if [[ "${PROP_ID}" -eq $(echo ${CALLBACK} | jq -r --arg id ${PROP_ID} 'select(.prop_id==$id)|.prop_id') ]]; then
           VOTE=$(echo ${CALLBACK} | jq -r --arg id ${PROP_ID} 'select(.prop_id==$id)|.vote')
           if [[ ${KEYRING} = "test" ]]; then
-            ${COSMOS} tx gov vote $PROP_ID $VOTE --home ${NODE_HOME} --keyring-backend ${KEYRING} --from ${DELEGATOR_ADDRESS} -y 2>/dev/null
+            ${COSMOS} tx gov vote $PROP_ID $VOTE --home ${NODE_HOME} --keyring-backend ${KEYRING} --from ${DELEGATOR_ADDRESS} --fees ${FEES} -y 2>/dev/null
           else
-            echo -e "${PASWD}\n${PASWD}\n" | ${COSMOS} tx gov vote $PROP_ID $VOTE --home ${NODE_HOME} --keyring-backend ${KEYRING} --from ${DELEGATOR_ADDRESS} -y 2>/dev/null
+            echo -e "${PASWD}\n${PASWD}\n" | ${COSMOS} tx gov vote $PROP_ID $VOTE --home ${NODE_HOME} --keyring-backend ${KEYRING} --from ${DELEGATOR_ADDRESS} --fees ${FEES} -y 2>/dev/null
           fi
           sleep 10
           VOTE_CHK=$(${COSMOS} query gov vote $PROP_ID ${DELEGATOR_ADDRESS} --home ${NODE_HOME} --output json 2>/dev/null | jq -r '.options[].option|sub("VOTE_OPTION_";"")')
           if [[ -n "$VOTE_CHK" ]]; then
             MSG_ID=$(echo ${CALLBACK} | jq -r --arg id ${PROP_ID} 'select(.prop_id==$id)|.message_id')
-            curl -s -X POST -H 'Content-Type: application/json' -d '{"chat_id":"'"${CHAT_ID_STATUS}"'", "text": "Voted <b>'"${VOTE_CHK}"'</b> for proposal <b>'"${PROP_ID}"'</b> as you selected", "parse_mode": "html", "reply_to_message_id": "'"${MSG_ID}"'"}' https://api.telegram.org/bot${BOT_KEY}/sendMessage >/dev/null 2>&1
+            curl -s -X POST -H 'Content-Type: application/json' -d '{"chat_id":"'"${CHAT_ID_ALARM}"'", "text": "Voted <b>'"${VOTE_CHK}"'</b> for proposal <b>'"${PROP_ID}"'</b> as you selected", "parse_mode": "html", "reply_to_message_id": "'"${MSG_ID}"'"}' https://api.telegram.org/bot${BOT_KEY}/sendMessage >/dev/null 2>&1
             echo "Voted \"${VOTE}\" for proposal ${PROP_ID}, as selected in telegram"
           fi
         fi
@@ -105,8 +105,9 @@ function Main() {
         KEYRING=${KEYRING}
         PASWD=${PASSWD}
         DELEGATOR_ADDRESS=${DELEGATOR_ADDRESS} # wallet address for sending vote tx, must be in keys list (only test keyring for now)
-        CHAT_ID_STATUS=${CHAT_ID_STATUS}       # telegram chat id
+        CHAT_ID_ALARM=${CHAT_ID_ALARM}       # telegram chat id
         BOT_KEY=${BOT_TOKEN}                   # telegram bot token
+        FEES=${FEES}
         # -- CONFIG ZONE END --
         # run 'VoteStatus'
         __VoteStatus
