@@ -23,11 +23,11 @@ function __VoteStatus() {
         prop_info_end=$(jq -r '.voting_end_time|strptime("%Y-%m-%dT%H:%M:%S.%Z")|mktime|strftime("%Y-%m-%d %H:%M %Z")' <<<$prop_info)
         prop_info="<b>${PROJECT} proposal ID: ${PROP_ID}</b>\n<b>${prop_info_title}</b>\n<i>${prop_info_descr}</i>\n<b>Voting start:</b> ${prop_info_start}\n<b>Voting end:</b> ${prop_info_end}"
         curl -s -X POST -H 'Content-Type: application/json' \
-          -d '{"chat_id":"'"${CHAT_ID_ALARM}"'", "text": "'"${prop_info}"'", "parse_mode": "html", "reply_markup": {"inline_keyboard": [[{"text": "Yes ✅", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_yes"},{"text": "No ❌", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_no"},{"text": "Veto ⛔️", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_veto"},{"text": "Abstain 🤔", "callback_data": "'"${PROJECT}"'_'"${PROP_ID}"'_abstain"}]]}}' https://api.telegram.org/bot${BOT_TOKEN}/sendMessage >/dev/null 2>&1
+          -d '{"chat_id":"'"${CHAT_ID_ALARM}"'", "text": "'"${prop_info}"'", "parse_mode": "html", "reply_markup": {"inline_keyboard": [[{"text": "Yes ✅", "callback_data": "'"${PROJECT}"'|'"${PROP_ID}"'|yes"},{"text": "No ❌", "callback_data": "'"${PROJECT}"'|'"${PROP_ID}"'|no"},{"text": "Veto ⛔️", "callback_data": "'"${PROJECT}"'|'"${PROP_ID}"'|no_with_veto"},{"text": "Abstain 🤔", "callback_data": "'"${PROJECT}"'|'"${PROP_ID}"'|abstain"}]]}}' https://api.telegram.org/bot${BOT_TOKEN}/sendMessage >/dev/null 2>&1
         echo "${PROP_ID}_sent" >>${SEND_STORE}
       fi
       #get callback from telegram
-      CALLBACK=$(curl -s "https://api.telegram.org/bot${BOT_TOKEN}/getUpdates" | jq -r '.result|map(select(.callback_query.data))|.[].callback_query.data|=split("_")|map({message_id: .callback_query.message.message_id, project: .callback_query.data[0], prop_id: .callback_query.data[1], vote: .callback_query.data[2]})|reverse|unique_by(.prop_id)|.[]' 2>/dev/null)
+      CALLBACK=$(curl -s "https://api.telegram.org/bot${BOT_TOKEN}/getUpdates" | jq -r '.result|map(select(.callback_query.data))|.[].callback_query.data|=split("|")|map({message_id: .callback_query.message.message_id, project: .callback_query.data[0], prop_id: .callback_query.data[1], vote: .callback_query.data[2]})|reverse|unique_by(.prop_id)|.[]' 2>/dev/null)
       if [[ -z $(jq -r --arg id ${PROP_ID} 'select(.prop_id==$id)|.prop_id' <<<${CALLBACK}) ]]; then
         if $(${COSMOS} query gov proposal $PROP_ID --home ${NODE_HOME} --output json | jq --argjson v $VOTE_BEFORE '.voting_end_time|strptime("%Y-%m-%dT%H:%M:%S.%Z")|mktime > (now+$v)'); then
           echo "Waiting for auto-vote time"
