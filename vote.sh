@@ -66,7 +66,7 @@ function Main() {
     if [[ "${CONF}" != *"COSMOS"* ]]; then
       # read config
       source ./${CONF}
-      NODE_HOME=${CONFIG/config\/}
+      NODE_HOME=$(dirname "$CONFIG")
       echo "-------- $(date +"%d-%m-%Y %H:%M") start vote check for ${PROJECT} --------"
       # run 'VoteStatus'
       __VoteStatus
